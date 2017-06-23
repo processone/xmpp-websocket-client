@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset='utf-8'>
+  <script type="text/javascript">
+    var WEB_SOCKET_SWF_LOCATION="../../WebSocketMain5.swf";
+//    var WEB_SOCKET_FORCE_FLASH=1;
+  </script>
+  <script type="text/javascript" src="jquery.js"></script>
+  <script type="text/javascript" src="jquery.json-2.2.js"></script>
+  <script type="text/javascript" src="jstorage.js"></script>
+  <script type="text/javascript" src="strophe.js"></script>
+  <script type="text/javascript" src="strophe.websocket.js"></script>
+  <script type="text/javascript" src="main.js"></script>
+  <style type="text/css">
+      html, body {
+          margin: 0;
+          padding: 0;
+          height: 100%;
+      }
+      #content {
+          height: 70%;
+      }
+      #log {
+          height: 30%;
+          overflow: auto;
+          word-wrap: break-word;
+      }
+      #log div { background: #ddddff}
+      #log div.msg {background: #ffffdd}
+      #log div.input {background: #ffdddd}
+      #log div.output {background: #ddffdd}
+  </style>
+</head>
+<body>
+  <div id="content">
+    <div id="login-box">
+      <label for="connection_url">Connection URL:</label>
+      <input type="text" id="connection_url" value="" style="width: 20%"/>
+      <br/>
+      <label for="jid">JID:</label>
+      <input type="text" id="jid" value="user@server/test" style="width: 20%"/>
+      <label for="pass">Password:</label>
+      <input type="password" id="pass" value=""/>
+      <br/>
+      <input type="checkbox" id="priority">Presence with priority</input>
+      <br/>
+      <input type="button" id="connect" value="Connect"/>
+    </div>
+    <div id="roster">
+      <div>CONNECTED</div>
+      <input type="button" id="disconnect" value="Disconnect"/>
+      <input type="button" id="freeze" value="Freeze"/>
+      <br/>
+      <label for="xmlinput">XMPP Stanza Input:</label>
+      <br/>
+      <textarea id="xmlinput" cols="80" rows="10"></textarea>
+      <input id="xmlinputsend" type="button" value="Send"/>
+      <div id="roster-content">
+      </div>
+    </div>
+  </div>
+  <div id="log"></div>
+</body>
+</html>
