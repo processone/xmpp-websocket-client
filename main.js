@@ -20,7 +20,7 @@ function addToLog(type, msg)
 
 function onConnect(status)
 {
-    if (status == Strophe.Status.CONNFAIL) {
+    if (status == Strophe.Status.CONNFAIL || status == Strophe.Status.AUTHFAIL) {
         addToLog("msg", "Connection error");
         enableLogin();
     } else if (status == Strophe.Status.DISCONNECTED) {
