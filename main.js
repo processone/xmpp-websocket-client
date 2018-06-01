@@ -3,42 +3,24 @@ var con;
 var startTime = (new Date()).getTime();
 
 function xmlescape(text)
-    {
-        text = text.toString();
-        text = text.replace(/\&/g, "&amp;");
-        text = text.replace(/</g,  "&lt;");
-        text = text.replace(/>/g,  "&gt;");
-        return text;
-    }
+{
+    text = text.toString();
+    text = text.replace(/\&/g, "&amp;");
+    text = text.replace(/</g, "&lt;");
+    text = text.replace(/>/g, "&gt;");
+    return text;
+}
 
 function addToLog(type, msg)
 {
     var d = (new Date()).getTime() - startTime;
-    $("#log").append("<div class='"+type+"'>"+(d/1000).toFixed(2)+" "+xmlescape(msg)+"</div>");
+    $("#log").append("<div class='" + type + "'>" + (d / 1000).toFixed(2) + " " + xmlescape(msg) + "</div>");
     $("#log").scrollTop(1000000);
 }
 
-function onConnect(c, status)
+function onConnect(status)
 {
-    if (!status)
-        status = c;
-    var statusMsg = "";
-    for (i in Strophe.Status)
-        if (Strophe.Status[i] == status)
-            statusMsg = i;
-
-    console.info("onConnect", status, statusMsg);
-
-    if (!con)
-    if (0) {
-        c.rawInput = function(str) { addToLog("input", str) };
-        c.rawOutput = function(str) { addToLog("output", str) };
-    } else {
-        c.xmlInput = function(el) { if(el.nodeType!=3)return; var d; try {d=Strophe.serialize(el)}catch(e){d=el}; addToLog("input", d) };
-        c.xmlOutput = function(el) { if(el.nodeType!=3)return; var d; try {d=Strophe.serialize(el)}catch(e){d=el}; addToLog("output", d)};
-    }
-    //con = c;
-    if (status == Strophe.Status.CONNFAIL || status == Strophe.Status.AUTHFAIL) {
+    if (status == Strophe.Status.CONNFAIL) {
         addToLog("msg", "Connection error");
         enableLogin();
     } else if (status == Strophe.Status.DISCONNECTED) {
@@ -61,8 +43,9 @@ function onConnect(c, status)
 
 function onRoster(stanza) {
     $(stanza).find("item").each(function() {
-        $("#roster-content").append("<div>"+Strophe.xmlescape($(this).text()+" - "+$(this).attr("jid"))+"</div>");
-    })
+        $("#roster-content").append(
+            "<div>" + Strophe.xmlescape($(this).text() + " - " + $(this).attr("jid")) + "</div>");
+    });
 }
 
 function enableLogin() {
@@ -81,23 +64,27 @@ function enableRoster() {
 }
 
 function freeze() {
-    return con.freeze();
+    if (con.service.startsWith("ws://")) {
+        if (con.save)
+            con.save();
+        return [con.jid, con.rebind.sid];
+    } else if (con) {
+        con.pause();
+        return [con.jid, con.sid, con.rid, con.wait, con.hold, con.window, con.maxPause];
+    }
 }
 $(window).bind("beforeunload", function() {
     if (con && con.connected)
-        $.jStorage.set("sData", [$("#connection_url").val(), freeze()]);
+        $.jStorage.set("sData", freeze());
 });
 
 if (!window.console) {
-    window.console = {}
+    window.console = {};
     console.log = console.info = console.error = function(msg) { addToLog("msg", msg) };
 }
 
 function createConnection() {
     var url = $("#connection_url").val();
-    if (url.indexOf("ws://") == 0 || url.indexOf("wss://") == 0)
-        con = new Strophe.WebSocket(url);
-    else
         con = new Strophe.Connection(url);
     if (0) {
         con.rawInput = function(str) { addToLog("input", str) };
@@ -108,84 +95,63 @@ function createConnection() {
     }
 }
 
-function attach(data) {
-    addToLog("msg", "Prebind succeeded. Attaching...");
+function rebindOrConnect(url, jid, pass, sid, callback, onlyRebind) {
+    createConnection();
 
-    var $body = $(data.documentElement);
-    con.attach($body.attr("jid"),
-               $body.attr("sid"),
-               $body.attr("rid"),
-               onConnect,
-               60, 1);
+    con.rebind._rebind(jid, pass, sid, callback, onlyRebind);
 }
 
 var con;
 $(document).ready(function() {
 try{
     if (!$("#connection_url").val())
-        $("#connection_url").val("ws://"+document.location.host+":5280/xmpp")
-        //$("#connection_url").val("http://"+document.location.host+":5280/http-bind")
+        $("#connection_url").val("ws://" + (document.location.hostname || "localhost") + ":5280/xmpp");
     enableLogin();
 
-    Strophe.log = function(level, str) { addToLog("log", str) };
 
     $("#xmlinputsend").bind("click", function() {
         con.send(Strophe.xmlHtmlNode($("#xmlinput").val()).firstElementChild);
         $("#xmlinput").val("");
     })
+    Strophe.log = function(level, str) { addToLog("log", str); };
 
     $("#connect").bind("click", function() {
         createConnection();
         $("#connect").attr("disabled", "true");
-        con.connect($("#jid").val(), $("#pass").val(), onConnect);
-        if(0)Strophe.makeConnection("http://"+document.location.host+":5280/http-bind",
-                               "ws://"+document.location.host+":5280/xmpp",
-                               $("#jid").val(), $("#pass").val(), onConnect)
-    });
-    $("#prealloc").bind("click", function() {
-    jQuery.support.cors=true;
-    addToLog("msg", "prealloc start");
-        createConnection();
-        $.ajax({
-            type: 'POST',
-            crossDomain: true,
-            url: "https://a."+document.location.host+":5281/preallocate",
-            headers: {Zuma: "100"},
-            xhrFields: {withCredentials: true},
-            contentType: 'text/xml',
-            processData: false,
-            data: $build('body', {
-                jid: $("#jid").val(),
-                pass: $("#pass").val(),
-                rid: '' + Math.floor(Math.random() * 4294967295),
-                wait: '60',
-                hold: '1'}).toString(),
-            dataType: 'xml',
-            success: attach,
-            error: function(e,f,g){window.er=e;addToLog("msg", ""+e+","+f+","+g)}
-        });
-        $("#connect").attr("disabled", "true");
+        rebindOrConnect($("#connection_url").val(), $("#jid").val(), $("#pass").val(), null, onConnect)
+        //con.connect($("#jid").val(), $("#pass").val(), onConnect);
     });
     $("#freeze").bind("click", function() {
-      var data = freeze();
-      $.jStorage.set("sData", [$("#connection_url").val(), freeze()]);
-      addToLog("msg", data);
+        var data = freeze();
+        $.jStorage.set("sData", data);
+        addToLog("msg", data);
+        con._proto.socket.close();
     });
     $("#duprid").bind("click", function() {
-      con.send("", 1);
+        con.send("", 1);
     });
     $("#disconnect").bind("click", function() {
         $("#disconnect").attr("disabled", "true");
         con.disconnect();
     });
     var sData = $.jStorage.get("sData");
-    if (sData) {
-        $("#connection_url").val(sData[0]);
-        createConnection();
-        con.thaw(sData[1], onConnect);
-        Strophe.makeConnection("http://"+document.location.host+":5280/http-bind",
-                               "ws://"+document.location.host+":5280/xmpp",
-                               $("#jid").val(), $("#pass").val(), onConnect, sData[1]);
+    console.info("Sdata", sData);
+    if (sData && sData[1]) {
+        //createConnection();
+        try {
+            if ($("#connection_url").val().startsWith("ws:")) {
+                rebindOrConnect($("#connection_url").val(), sData[0], "", sData[1], onConnect, true);
+                //con.rebind(sData[0], sData[1], onConnect);
+            } else {
+                createConnection();
+                con.attach(sData[0], sData[1], sData[2]);
+                con._onIdle();
+                enableRoster();
+            }
+        }
+        catch (ex) {
+            console.info(ex);
+        }
         $.jStorage.deleteKey("sData");
     }
     }catch(ex){alert(ex)}
